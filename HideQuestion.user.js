@@ -8,17 +8,20 @@
 // @include		http://superuser.com*
 // @include		http://codereview.stackexchange.com*
 // @include		http://stackapps.com*
-// @version     1
+// @version     2
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_log
 // ==/UserScript==
 
-GM_log = function (data) {};
-
 var host = location.host;
 var questionsKey = host+"_hiddenQuestions";
 
+function log(line) {
+	GM_log(line);
+}
+
+log = function (data) {};
 
 function deserialize(name, def) {
     return eval(GM_getValue(name, (def || '({})')));
@@ -37,16 +40,21 @@ function questionIdByUrl(url) {
 }
 
 function xpath(context, expression, callback) {
-//    GM_log("Perfroming Xpath: " + expression);
+    //log("Performing Xpath: " + expression);
     var i = document.evaluate(expression, context, null, XPathResult.UNORDERED_NODE_ITERATOR_TYPE , null);
     if (!i)
         throw new Error("Invalid query: "+expression);
     var data;
-    while (data = i.iterateNext()) {
-        if (!callback(data))
-            return;
-    }
-//    GM_log("Xpath: " + expression + " succeeded");
+	var count = 0;
+	try {
+		while (data = i.iterateNext()) {
+			count++;
+			if (!callback(data))
+				return;
+		}
+	} finally {
+		//log("Xpath: " + expression + " iterated over " + count + " nodes.");
+	}
 }
 
 function xpathToNodeArray(context, expression) {
@@ -82,7 +90,7 @@ var hiddenIds = deserialize(questionsKey, []);
 function setHidden(id, shouldBeHidden) {
 	var position = hiddenIds.indexOf(id);
 	shouldBeHidden = shouldBeHidden ? true : false;
-	GM_log((shouldBeHidden ? "Hide" : "Unhide") + " question: " + id);
+	log((shouldBeHidden ? "Hide" : "Unhide") + " question: " + id);
 	if (shouldBeHidden) {
 		if (position < 0) {
 			hiddenIds.push(id);
@@ -92,7 +100,7 @@ function setHidden(id, shouldBeHidden) {
 			hiddenIds.splice(position, 1);
 		}
 	}
-	GM_log("Hidden now: " + hiddenIds);
+	log("Hidden now: " + hiddenIds);
 	if (isHidden(id) != shouldBeHidden)
 		throw new Error("Question " + id + " status is wrong: " + hiddenIds);
 	serialize(questionsKey, hiddenIds);
@@ -119,7 +127,7 @@ function addCheckBox(node, id, initialState, callback) {
 	input.type = "checkbox";
 	input.value = parseInt(id);
 	input.checked = initialState;
-	//input.style.cssFloat="right";
+	input.title = "Hide this question";
 	function callback1(event) {
 		callback(event.target);
 	}
@@ -139,9 +147,11 @@ function processQuestionList() {
 		if (!id)
 			throw new Error("Bad question link: " + url);
 		var hide = isHidden(id);
-		if (hide)
+		if (hide) {
+			log("Hiding " + id);
 			node.classList.add("tagged-ignored-hidden");
-		GM_log(""+id+": " + node.classList);
+		}
+		//log(""+id+": " + node.classList);
 		function callback2(node) {
 			addCheckBox(node, id, hide, handleCheckboxUpdate);
 			return true;
