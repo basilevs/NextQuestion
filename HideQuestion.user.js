@@ -8,6 +8,7 @@
 // @include		http://superuser.com*
 // @include		http://codereview.stackexchange.com*
 // @include		http://stackapps.com*
+// @include	http://*.stackexchange.com*
 // @version     2
 // @grant       GM_getValue
 // @grant       GM_setValue
