@@ -28,8 +28,17 @@ function deserialize(name, def) {
     return eval(GM_getValue(name, (def || '({})')));
 }
 
+function removePrefix(data, prefix) {
+    if (data.indexOf(prefix) === 0) {
+        return data.substring(prefix.length);
+    } else {
+    	return data;
+    }
+}
+
 function serialize(name, val) {
-    GM_setValue(name, uneval(val));
+	val = removePrefix(uneval(val), "\\$1 = "); //Chrome uneval adds this prefix
+	GM_setValue(name, val);
 }
 
 var urlIdRegEx = /\/(\d+)\//;
