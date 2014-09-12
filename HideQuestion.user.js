@@ -9,7 +9,7 @@
 // @include		http://codereview.stackexchange.com*
 // @include		http://stackapps.com*
 // @include	http://*.stackexchange.com*
-// @version     2
+// @version     3
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_log
