@@ -9,7 +9,7 @@
 // @include		http://codereview.stackexchange.com*
 // @include		http://stackapps.com*
 // @include	http://*.stackexchange.com*
-// @version     3
+// @version     4
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_log
@@ -25,20 +25,12 @@ function log(line) {
 log = function (data) {};
 
 function deserialize(name, def) {
-    return eval(GM_getValue(name, (def || '({})')));
-}
-
-function removePrefix(data, prefix) {
-    if (data.indexOf(prefix) === 0) {
-        return data.substring(prefix.length);
-    } else {
-    	return data;
-    }
+		var value = GM_getValue(name, (def || '({})'))
+    return JSON.parse(value);
 }
 
 function serialize(name, val) {
-	val = removePrefix(uneval(val), "\\$1 = "); //Chrome uneval adds this prefix
-	GM_setValue(name, val);
+	GM_setValue(name, JSON.stringify(val));
 }
 
 var urlIdRegEx = /\/(\d+)\//;
