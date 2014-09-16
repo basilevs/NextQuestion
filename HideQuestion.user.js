@@ -9,7 +9,7 @@
 // @include		http://codereview.stackexchange.com*
 // @include		http://stackapps.com*
 // @include	http://*.stackexchange.com*
-// @version     4
+// @version     5
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_log
@@ -25,8 +25,12 @@ function log(line) {
 log = function (data) {};
 
 function deserialize(name, def) {
-		var value = GM_getValue(name, (def || '({})'))
-    return JSON.parse(value);
+	var value = GM_getValue(name, (def || '({})'));
+	try {
+		return JSON.parse(value);
+	} catch (e) {
+		return def;
+	}
 }
 
 function serialize(name, val) {
