@@ -12,7 +12,7 @@
 // @include		http://serverfault.com*
 // @include		http://*.stackexchange.com*
 // @include		http://mathoverflow.net*
-// @version     7
+// @version     8
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_log
@@ -21,11 +21,11 @@
 GM_log = function (data) {};
 
 function deserialize(name, def) {
-    return eval(GM_getValue(name, (def || '({})')));
+    return JSON.parse(GM_getValue(name, (def || '({})')));
 }
 
 function serialize(name, val) {
-    GM_setValue(name, uneval(val));
+    GM_setValue(name, JSON.stringify(val));
 }
 
 
