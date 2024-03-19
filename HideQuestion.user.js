@@ -2,30 +2,30 @@
 // @name        HideQuestion
 // @namespace   stackexchange
 // @description Hides selected questions
-// @include     http://stackoverflow.com*
-// @include     http://meta.stackoverflow.com*
-// @include		http://askubuntu.com*
-// @include		http://superuser.com*
-// @include		http://codereview.stackexchange.com*
-// @include		http://stackapps.com*
-// @include	http://*.stackexchange.com*
-// @version     5
-// @grant       GM_getValue
-// @grant       GM_setValue
-// @grant       GM_log
+// @match       https://stackoverflow.com/*
+// @match				https://meta.stackoverflow.com/*
+// @match				https://askubuntu.com/*
+// @match				https://superuser.com/*
+// @match				https://codereview.stackexchange.com/*
+// @match				https://stackapps.com/*
+// @match				https://*.stackexchange.com/*
+// @version     6
+// @grant       GM.getValue
+// @grant       GM.setValue
+// @grant       GM.log
 // ==/UserScript==
 
 var host = location.host;
 var questionsKey = host+"_hiddenQuestions";
 
-function log(line) {
-	GM_log(line);
+function log() {
+	console.log(...arguments);
 }
 
-log = function (data) {};
+//log = function (data) {};
 
-function deserialize(name, def) {
-	var value = GM_getValue(name, (def || '({})'));
+async function deserialize(name, def) {
+	var value = await GM.getValue(name, JSON.stringify(def));
 	try {
 		return JSON.parse(value);
 	} catch (e) {
@@ -33,8 +33,8 @@ function deserialize(name, def) {
 	}
 }
 
-function serialize(name, val) {
-	GM_setValue(name, JSON.stringify(val));
+async function serialize(name, val) {
+	return await GM.setValue(name, JSON.stringify(val));
 }
 
 var urlIdRegEx = /\/(\d+)\//;
@@ -59,7 +59,7 @@ function xpath(context, expression, callback) {
 				return;
 		}
 	} finally {
-		//log("Xpath: " + expression + " iterated over " + count + " nodes.");
+		log("Xpath: " + expression + " iterated over " + count + " nodes.");
 	}
 }
 
@@ -83,43 +83,45 @@ function xpathModify(context, expression, callback) {
 }
 
 function getQuestionLink(node) {
-	var nodes = xpathToNodeArray(node, './/a[@class="question-hyperlink"]/@href');
+	var nodes = xpathToNodeArray(node, './/a[@class="s-link"]/@href');
 	if (nodes.length > 0)
 		return nodes[0].value;
-	return null;
+  throw new Error("Can't exract question link from ", {cause: node});
 }
 
 
 
 var hiddenIds = deserialize(questionsKey, []);
 
-function setHidden(id, shouldBeHidden) {
-	var position = hiddenIds.indexOf(id);
+async function setHidden(id, shouldBeHidden) {
+  let hiddenIdsCopy = await hiddenIds;
+	var position = hiddenIdsCopy.indexOf(id);
 	shouldBeHidden = shouldBeHidden ? true : false;
 	log((shouldBeHidden ? "Hide" : "Unhide") + " question: " + id);
 	if (shouldBeHidden) {
 		if (position < 0) {
-			hiddenIds.push(id);
+			hiddenIdsCopy.push(id);
 		}
 	} else {
 		if (position >= 0) {
-			hiddenIds.splice(position, 1);
+			hiddenIdsCopy.splice(position, 1);
 		}
 	}
-	log("Hidden now: " + hiddenIds);
-	if (isHidden(id) != shouldBeHidden)
+	log("Hidden now: " + hiddenIdsCopy);
+	if ((hiddenIdsCopy.indexOf(id) >= 0) != shouldBeHidden)
 		throw new Error("Question " + id + " status is wrong: " + hiddenIds);
-	serialize(questionsKey, hiddenIds);
+	await serialize(questionsKey, hiddenIdsCopy);
 }
 
-function isHidden(id) {
-	var rv = (hiddenIds.indexOf(id) >= 0);
+async function isHidden(id) {
+  let hiddenIdsCopy = await hiddenIds;
+	var rv = hiddenIdsCopy.indexOf(id) >= 0;
 	return rv;
 }
 
 function handleCheckboxUpdate(checkbox) {
 	var id = parseInt(checkbox.value);
-	setHidden(id, checkbox.checked);
+	setHidden(id, checkbox.checked).catch(console.error);
 }
 
 function addCheckBox(node, id, initialState, callback) {
@@ -143,21 +145,20 @@ function addCheckBox(node, id, initialState, callback) {
 
 
 function processQuestionList() {
-	function callback(node) {
+	async function callback(node) {
+    log('Detected question ' + node);
 		if (!node)
 			throw new Error("Null node");
 		var url = getQuestionLink(node);
-		if (!url)
-			return;
 		var id = questionIdByUrl(url);
 		if (!id)
 			throw new Error("Bad question link: " + url);
-		var hide = isHidden(id);
+		var hide = await isHidden(id);
 		if (hide) {
 			log("Hiding " + id);
 			node.classList.add("tagged-ignored-hidden");
 		}
-		//log(""+id+": " + node.classList);
+		log(""+id+": " + node.classList);
 		function callback2(node) {
 			addCheckBox(node, id, hide, handleCheckboxUpdate);
 			return true;
@@ -165,15 +166,15 @@ function processQuestionList() {
 		xpathModify(node, ".//h3", callback2);
 		return true;
 	}
-	xpathModify(document, './/div[contains(@class, "question-summary")]', callback);
+	xpathModify(document, './/div[@data-post-type-id="1"]', callback);
 }
 
-function processCurrentQuestion() {
+async function processCurrentQuestion() {
 	var url = location.href;
 	var id = questionIdByUrl(url);
 	if (!id)
 		return;
-	var hide = isHidden(id);
+	var hide = await isHidden(id);
 	function handleHeader(node) {
 		addCheckBox(node, id, hide, handleCheckboxUpdate);
 	}
