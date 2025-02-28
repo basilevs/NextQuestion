@@ -9,7 +9,7 @@
 // @match				https://codereview.stackexchange.com/*
 // @match				https://stackapps.com/*
 // @match				https://*.stackexchange.com/*
-// @version     6
+// @version     7
 // @grant       GM.getValue
 // @grant       GM.setValue
 // @grant       GM.log
@@ -59,7 +59,7 @@ function xpath(context, expression, callback) {
 				return;
 		}
 	} finally {
-		log("Xpath: " + expression + " iterated over " + count + " nodes.");
+// 		log("Xpath: " + expression + " iterated over " + count + " nodes.");
 	}
 }
 
@@ -131,22 +131,28 @@ function addCheckBox(node, id, initialState, callback) {
 		throw new Error("No id");
 	if (!callback)
 		throw new Error("No callback");
-	var input = document.createElement("input");
-	input.type = "checkbox";
-	input.value = parseInt(id);
-	input.checked = initialState;
-	input.title = "Hide this question";
-	function callback1(event) {
-		callback(event.target);
-	}
-	input.addEventListener('click', callback1);
-	node.insertBefore(input, node.firstChild);
+	let input = xpathToNodeArray(node, './/input');
+  if (!input.length) {
+    input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = parseInt(id);
+    input.checked = initialState;
+    input.title = "Hide this question";
+    function callback1(event) {
+      callback(event.target);
+    }
+    input.addEventListener('click', callback1);
+    node.insertBefore(input, node.firstChild);
+  } else {
+    input = input[0];
+    input.checked = initialState;
+  }
 }
 
 
 function processQuestionList() {
 	async function callback(node) {
-    log('Detected question ' + node);
+    log('Detected question', node);
 		if (!node)
 			throw new Error("Null node");
 		var url = getQuestionLink(node);
@@ -155,10 +161,12 @@ function processQuestionList() {
 			throw new Error("Bad question link: " + url);
 		var hide = await isHidden(id);
 		if (hide) {
-			log("Hiding " + id);
-			node.classList.add("tagged-ignored-hidden");
+      setTimeout(() => {
+        log("Hiding " + id);
+        node.classList.add("tagged-ignored-hidden");
+        log(id, node, node.classList);
+      }, 1000);
 		}
-		log(""+id+": " + node.classList);
 		function callback2(node) {
 			addCheckBox(node, id, hide, handleCheckboxUpdate);
 			return true;
@@ -166,7 +174,7 @@ function processQuestionList() {
 		xpathModify(node, ".//h3", callback2);
 		return true;
 	}
-	xpathModify(document, './/div[@data-post-type-id="1"]', callback);
+	xpathModify(document, './/div[starts-with(@id, "question-summary-")]', callback);
 }
 
 async function processCurrentQuestion() {
@@ -181,9 +189,9 @@ async function processCurrentQuestion() {
 	xpath(document, '//div[@id="question-header"]/h1', handleHeader);
 }
 
+processQuestionList();
 processCurrentQuestion();
 
 
-window.addEventListener('load', processQuestionList);
 
 
