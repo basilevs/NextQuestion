@@ -9,7 +9,7 @@
 // @match				https://codereview.stackexchange.com/*
 // @match				https://stackapps.com/*
 // @match				https://*.stackexchange.com/*
-// @version     8
+// @version     9
 // @grant       GM.getValue
 // @grant       GM.setValue
 // @grant       GM.log
@@ -19,7 +19,7 @@ var host = location.host;
 var questionsKey = host+"_hiddenQuestions";
 
 function log() {
-	console.log(...arguments);
+	console.debug(...arguments);
 }
 
 //log = function (data) {};
@@ -119,23 +119,28 @@ async function isHidden(id) {
 	return rv;
 }
 
-function handleCheckboxUpdate(checkbox) {
-	var id = parseInt(checkbox.value);
-	setHidden(id, checkbox.checked).catch(console.error);
+function changeQuestionState(id, node, hide) {
+  if (!id)
+		throw new Error("No id");
+
+	setHidden(id, hide).catch(console.error);
+  if (hide) {
+    node.classList.add("hide_question_hidden");
+  } else {
+    node.classList.remove("hide_question_hidden");
+  }
+  log(id, node, node.classList);
 }
 
-function addCheckBox(node, id, initialState, callback) {
+function addCheckBox(node, initialState, callback) {
 	if (!node)
 		throw new Error("No node");
-	if (!id)
-		throw new Error("No id");
 	if (!callback)
 		throw new Error("No callback");
 	let input = xpathToNodeArray(node, './/input');
   if (!input.length) {
     input = document.createElement("input");
     input.type = "checkbox";
-    input.value = parseInt(id);
     input.checked = initialState;
     input.title = "Hide this question";
     function callback1(event) {
@@ -147,6 +152,7 @@ function addCheckBox(node, id, initialState, callback) {
     input = input[0];
     input.checked = initialState;
   }
+  return input;
 }
 
 
@@ -155,21 +161,17 @@ function processQuestionList() {
     log('Detected question', node);
 		if (!node)
 			throw new Error("Null node");
-		var url = getQuestionLink(node);
-		var id = questionIdByUrl(url);
+		const url = getQuestionLink(node);
+		const id = questionIdByUrl(url);
 		if (!id)
 			throw new Error("Bad question link: " + url);
-		var hide = await isHidden(id);
-		function callback2(node) {
-			addCheckBox(node, id, hide, handleCheckboxUpdate);
+		const hide = await isHidden(id);
+		function callback2(header) {
+			addCheckBox(header, hide, input => changeQuestionState(id, node, input.checked) );
 			return true;
 		}
 		xpathModify(node, ".//h3", callback2);
-		if (hide) {
-        log("Hiding " + id);
-        node.classList.add("hide_question_hidden");
-        log(id, node, node.classList);
-		}
+    changeQuestionState(id, node, hide);
 		return true;
 	}
 	xpathModify(document, './/div[starts-with(@id, "question-summary-")]', callback);
@@ -205,7 +207,7 @@ function installStyleCheckbox() {
     checkbox.addEventListener('click', (element) => {
       let disable = checkbox.checked;
 			sheet.disabled = disable;
-      console.log(checkbox, disable, sheet);
+      log(checkbox, disable, sheet);
     });
   }
 }
