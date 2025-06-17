@@ -9,7 +9,7 @@
 // @match				https://codereview.stackexchange.com/*
 // @match				https://stackapps.com/*
 // @match				https://*.stackexchange.com/*
-// @version     7
+// @version     8
 // @grant       GM.getValue
 // @grant       GM.setValue
 // @grant       GM.log
@@ -160,18 +160,16 @@ function processQuestionList() {
 		if (!id)
 			throw new Error("Bad question link: " + url);
 		var hide = await isHidden(id);
-		if (hide) {
-      setTimeout(() => {
-        log("Hiding " + id);
-        node.classList.add("tagged-ignored-hidden");
-        log(id, node, node.classList);
-      }, 1000);
-		}
 		function callback2(node) {
 			addCheckBox(node, id, hide, handleCheckboxUpdate);
 			return true;
 		}
 		xpathModify(node, ".//h3", callback2);
+		if (hide) {
+        log("Hiding " + id);
+        node.classList.add("hide_question_hidden");
+        log(id, node, node.classList);
+		}
 		return true;
 	}
 	xpathModify(document, './/div[starts-with(@id, "question-summary-")]', callback);
@@ -192,6 +190,24 @@ async function processCurrentQuestion() {
 processQuestionList();
 processCurrentQuestion();
 
+const sheetElement = document.createElement('style');
+document.head.appendChild(sheetElement);
+const sheet = sheetElement.sheet;
+sheet.insertRule('.hide_question_hidden { display: none }');
 
 
+function installStyleCheckbox() {
+	let button_groups = document.getElementsByClassName("s-btn-group");
+	if (button_groups) {
+    console.info('Buttons are found', button_groups);
+    button_groups[0].innerHTML += '<label class="flex--item s-btn"><input type="checkbox" id="hide_question_checkbox" class="s-btn--text">Show hidden</input></label>';
+    const checkbox = document.getElementById('hide_question_checkbox');
+    checkbox.addEventListener('click', (element) => {
+      let disable = checkbox.checked;
+			sheet.disabled = disable;
+      console.log(checkbox, disable, sheet);
+    });
+  }
+}
 
+installStyleCheckbox();
