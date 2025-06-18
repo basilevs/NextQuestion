@@ -9,7 +9,7 @@
 // @match				https://codereview.stackexchange.com/*
 // @match				https://stackapps.com/*
 // @match				https://*.stackexchange.com/*
-// @version     10
+// @version     11
 // @grant       GM.getValue
 // @grant       GM.setValue
 // @grant       GM.log
@@ -37,7 +37,11 @@ async function serialize(name, val) {
 	return await GM.setValue(name, JSON.stringify(val));
 }
 
-var urlIdRegEx = /\/(\d+)\//;
+// Possible question URLs:
+// - /questions/66484366/how-to-run-git-commands-in-eclipse?r=2
+// - /staging-ground/79669973?r=2
+
+var urlIdRegEx = /\/(\d+)[\/?]/;
 function questionIdByUrl(url) {
     var result = urlIdRegEx.exec(url);
     if (result)
