@@ -9,7 +9,7 @@
 // @match				https://codereview.stackexchange.com/*
 // @match				https://stackapps.com/*
 // @match				https://*.stackexchange.com/*
-// @version     9
+// @version     10
 // @grant       GM.getValue
 // @grant       GM.setValue
 // @grant       GM.log
@@ -91,46 +91,30 @@ function getQuestionLink(node) {
 
 
 
-var hiddenIds = deserialize(questionsKey, []);
+var hiddenIds = deserialize(questionsKey, []).then(x => new Set(x));
 
 async function setHidden(id, shouldBeHidden) {
   let hiddenIdsCopy = await hiddenIds;
-	var position = hiddenIdsCopy.indexOf(id);
 	shouldBeHidden = shouldBeHidden ? true : false;
+  if (shouldBeHidden == hiddenIdsCopy.has(id)) {
+    return;
+  }
 	log((shouldBeHidden ? "Hide" : "Unhide") + " question: " + id);
 	if (shouldBeHidden) {
-		if (position < 0) {
-			hiddenIdsCopy.push(id);
-		}
+    hiddenIdsCopy.add(id);
 	} else {
-		if (position >= 0) {
-			hiddenIdsCopy.splice(position, 1);
-		}
+    hiddenIdsCopy.delete(id);
 	}
-	log("Hidden now: " + hiddenIdsCopy);
-	if ((hiddenIdsCopy.indexOf(id) >= 0) != shouldBeHidden)
-		throw new Error("Question " + id + " status is wrong: " + hiddenIds);
-	await serialize(questionsKey, hiddenIdsCopy);
+	log("Hidden now", hiddenIdsCopy);
+	await serialize(questionsKey, hiddenIdsCopy.keys().toArray());
 }
 
 async function isHidden(id) {
   let hiddenIdsCopy = await hiddenIds;
-	var rv = hiddenIdsCopy.indexOf(id) >= 0;
+	var rv = hiddenIdsCopy.has(id);
 	return rv;
 }
 
-function changeQuestionState(id, node, hide) {
-  if (!id)
-		throw new Error("No id");
-
-	setHidden(id, hide).catch(console.error);
-  if (hide) {
-    node.classList.add("hide_question_hidden");
-  } else {
-    node.classList.remove("hide_question_hidden");
-  }
-  log(id, node, node.classList);
-}
 
 function addCheckBox(node, initialState, callback) {
 	if (!node)
@@ -141,7 +125,6 @@ function addCheckBox(node, initialState, callback) {
   if (!input.length) {
     input = document.createElement("input");
     input.type = "checkbox";
-    input.checked = initialState;
     input.title = "Hide this question";
     function callback1(event) {
       callback(event.target);
@@ -150,15 +133,22 @@ function addCheckBox(node, initialState, callback) {
     node.insertBefore(input, node.firstChild);
   } else {
     input = input[0];
-    input.checked = initialState;
   }
+  input.checked = initialState;
   return input;
 }
 
+function theOnlyElement(array) {
+  if (array.length != 1) {
+    throw new Error("Invalid number of elements: " + array.length);
+  }
+  return array[0];
+}
 
-function processQuestionList() {
-	async function callback(node) {
-    log('Detected question', node);
+
+async function processQuestionList() {
+  const list = xpathToNodeArray(document, './/div[starts-with(@id, "question-summary-")]')
+	for (const node of list) {
 		if (!node)
 			throw new Error("Null node");
 		const url = getQuestionLink(node);
@@ -166,15 +156,21 @@ function processQuestionList() {
 		if (!id)
 			throw new Error("Bad question link: " + url);
 		const hide = await isHidden(id);
-		function callback2(header) {
-			addCheckBox(header, hide, input => changeQuestionState(id, node, input.checked) );
-			return true;
-		}
-		xpathModify(node, ".//h3", callback2);
-    changeQuestionState(id, node, hide);
-		return true;
-	}
-	xpathModify(document, './/div[starts-with(@id, "question-summary-")]', callback);
+    function changeQuestionState(hide) {
+      if (!id)
+        throw new Error("No id");
+
+      setHidden(id, hide).catch(console.error);
+      if (hide) {
+        node.classList.add("hide_question_hidden");
+      } else {
+        node.classList.remove("hide_question_hidden");
+      }
+      log(id, node, node.classList);
+    }
+    addCheckBox(theOnlyElement(xpathToNodeArray(node, ".//h3")), hide, input => changeQuestionState(input.checked) );
+    changeQuestionState(hide);
+  }
 }
 
 async function processCurrentQuestion() {
@@ -182,11 +178,13 @@ async function processCurrentQuestion() {
 	var id = questionIdByUrl(url);
 	if (!id)
 		return;
-	var hide = await isHidden(id);
-	function handleHeader(node) {
-		addCheckBox(node, id, hide, handleCheckboxUpdate);
-	}
-	xpath(document, '//div[@id="question-header"]/h1', handleHeader);
+  function changeQuestionState(hide) {
+      if (!id)
+        throw new Error("No id");
+      setHidden(id, hide).catch(console.error);
+  }
+	const hide = await isHidden(id);
+  addCheckBox(theOnlyElement(xpathToNodeArray(document, '//div[@id="question-header"]/h1')), hide, input => changeQuestionState(input.checked));
 }
 
 processQuestionList();
@@ -199,10 +197,10 @@ sheet.insertRule('.hide_question_hidden { display: none }');
 
 
 function installStyleCheckbox() {
-	let button_groups = document.getElementsByClassName("s-btn-group");
-	if (button_groups) {
-    console.info('Buttons are found', button_groups);
-    button_groups[0].innerHTML += '<label class="flex--item s-btn"><input type="checkbox" id="hide_question_checkbox" class="s-btn--text">Show hidden</input></label>';
+	let button_group = document.getElementsByClassName("s-btn-group");
+	if (button_group.length) {
+    console.info('Buttons are found', button_group);
+    button_group[0].innerHTML += '<label class="flex--item s-btn"><input type="checkbox" id="hide_question_checkbox" class="s-btn--text">Show hidden</input></label>';
     const checkbox = document.getElementById('hide_question_checkbox');
     checkbox.addEventListener('click', (element) => {
       let disable = checkbox.checked;
