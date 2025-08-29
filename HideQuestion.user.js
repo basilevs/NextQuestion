@@ -9,7 +9,7 @@
 // @match				https://codereview.stackexchange.com/*
 // @match				https://stackapps.com/*
 // @match				https://*.stackexchange.com/*
-// @version     14
+// @version     15
 // @grant       GM.getValue
 // @grant       GM.setValue
 // @grant       GM.log
@@ -80,8 +80,8 @@ function xpathToNodeArray(context, expression) {
 
 function xpathModify(context, expression, callback) {
 	const nodes = xpathToNodeArray(context, expression);
-	for (let i in nodes) {
-		if (!callback(nodes[i]))
+	for (const i of nodes) {
+		if (!callback(i))
 			return;
 	}
 }
@@ -110,7 +110,7 @@ async function setHidden(id, shouldBeHidden) {
     hiddenIdsCopy.delete(id);
 	}
 	log("Hidden now", hiddenIdsCopy);
-	await serialize(questionsKey, hiddenIdsCopy.keys().toArray());
+	await serialize(questionsKey, Array.from(hiddenIdsCopy));
 }
 
 async function isHidden(id) {
