@@ -9,7 +9,7 @@
 // @match				https://codereview.stackexchange.com/*
 // @match				https://stackapps.com/*
 // @match				https://*.stackexchange.com/*
-// @version     11
+// @version     13
 // @grant       GM.getValue
 // @grant       GM.setValue
 // @grant       GM.log
@@ -204,13 +204,22 @@ function installStyleCheckbox() {
 	let button_group = document.getElementsByClassName("s-btn-group");
 	if (button_group.length) {
     console.info('Buttons are found', button_group);
-    button_group[0].innerHTML += '<label class="flex--item s-btn"><input type="checkbox" id="hide_question_checkbox" class="s-btn--text">Show hidden</input></label>';
-    const checkbox = document.getElementById('hide_question_checkbox');
-    checkbox.addEventListener('click', (element) => {
+    const label = document.createElement("label");
+    label.className = "flex--item s-btn";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "s-btn--text";
+
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode("Show hidden"));
+
+    checkbox.addEventListener("click", () => {
       let disable = checkbox.checked;
-			sheet.disabled = disable;
+      sheet.disabled = disable;
       log(checkbox, disable, sheet);
     });
+    button_group[0].appendChild(label);
   }
 }
 
