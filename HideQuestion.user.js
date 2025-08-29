@@ -9,14 +9,14 @@
 // @match				https://codereview.stackexchange.com/*
 // @match				https://stackapps.com/*
 // @match				https://*.stackexchange.com/*
-// @version     13
+// @version     14
 // @grant       GM.getValue
 // @grant       GM.setValue
 // @grant       GM.log
 // ==/UserScript==
 
-var host = location.host;
-var questionsKey = host+"_hiddenQuestions";
+const host = location.host;
+const questionsKey = host+"_hiddenQuestions";
 
 function log() {
 	console.debug(...arguments);
@@ -25,7 +25,7 @@ function log() {
 //log = function (data) {};
 
 async function deserialize(name, def) {
-	var value = await GM.getValue(name, JSON.stringify(def));
+	const value = await GM.getValue(name, JSON.stringify(def));
 	try {
 		return JSON.parse(value);
 	} catch (e) {
@@ -41,9 +41,9 @@ async function serialize(name, val) {
 // - /questions/66484366/how-to-run-git-commands-in-eclipse?r=2
 // - /staging-ground/79669973?r=2
 
-var urlIdRegEx = /\/(\d+)[\/?]/;
+const urlIdRegEx = /\/(\d+)[\/?]/;
 function questionIdByUrl(url) {
-    var result = urlIdRegEx.exec(url);
+    const result = urlIdRegEx.exec(url);
     if (result)
         return parseInt(result[1]);
     return null;
@@ -51,11 +51,11 @@ function questionIdByUrl(url) {
 
 function xpath(context, expression, callback) {
     //log("Performing Xpath: " + expression);
-    var i = document.evaluate(expression, context, null, XPathResult.UNORDERED_NODE_ITERATOR_TYPE , null);
+    const i = document.evaluate(expression, context, null, XPathResult.UNORDERED_NODE_ITERATOR_TYPE , null);
     if (!i)
         throw new Error("Invalid query: "+expression);
-    var data;
-	var count = 0;
+    let data;
+	let count = 0;
 	try {
 		while (data = i.iterateNext()) {
 			count++;
@@ -68,7 +68,7 @@ function xpath(context, expression, callback) {
 }
 
 function xpathToNodeArray(context, expression) {
-	var rv = [];
+	const rv = [];
 	function callback(node) {
 		if (node)
 			rv.push(node);
@@ -79,15 +79,15 @@ function xpathToNodeArray(context, expression) {
 }
 
 function xpathModify(context, expression, callback) {
-	var nodes = xpathToNodeArray(context, expression);
-	for (var i in nodes) {
+	const nodes = xpathToNodeArray(context, expression);
+	for (let i in nodes) {
 		if (!callback(nodes[i]))
 			return;
 	}
 }
 
 function getQuestionLink(node) {
-	var nodes = xpathToNodeArray(node, './/a[@class="s-link"]/@href');
+	const nodes = xpathToNodeArray(node, './/a[@class="s-link"]/@href');
 	if (nodes.length > 0)
 		return nodes[0].value;
   throw new Error("Can't exract question link from ", {cause: node});
@@ -95,7 +95,7 @@ function getQuestionLink(node) {
 
 
 
-var hiddenIds = deserialize(questionsKey, []).then(x => new Set(x));
+const hiddenIds = deserialize(questionsKey, []).then(x => new Set(x));
 
 async function setHidden(id, shouldBeHidden) {
   let hiddenIdsCopy = await hiddenIds;
@@ -115,7 +115,7 @@ async function setHidden(id, shouldBeHidden) {
 
 async function isHidden(id) {
   let hiddenIdsCopy = await hiddenIds;
-	var rv = hiddenIdsCopy.has(id);
+	const rv = hiddenIdsCopy.has(id);
 	return rv;
 }
 
@@ -165,11 +165,7 @@ async function processQuestionList() {
         throw new Error("No id");
 
       setHidden(id, hide).catch(console.error);
-      if (hide) {
-        node.classList.add("hide_question_hidden");
-      } else {
-        node.classList.remove("hide_question_hidden");
-      }
+      node.classList.toggle("hide_question_hidden", hide);
       log(id, node, node.classList);
     }
     addCheckBox(theOnlyElement(xpathToNodeArray(node, ".//h3")), hide, input => changeQuestionState(input.checked) );
@@ -178,8 +174,8 @@ async function processQuestionList() {
 }
 
 async function processCurrentQuestion() {
-	var url = location.href;
-	var id = questionIdByUrl(url);
+	const url = location.href;
+	const id = questionIdByUrl(url);
 	if (!id)
 		return;
   function changeQuestionState(hide) {
@@ -201,26 +197,20 @@ sheet.insertRule('.hide_question_hidden { display: none }');
 
 
 function installStyleCheckbox() {
-	let button_group = document.getElementsByClassName("s-btn-group");
-	if (button_group.length) {
-    console.info('Buttons are found', button_group);
-    const label = document.createElement("label");
-    label.className = "flex--item s-btn";
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.className = "s-btn--text";
-
-    label.appendChild(checkbox);
-    label.appendChild(document.createTextNode("Show hidden"));
-
-    checkbox.addEventListener("click", () => {
-      let disable = checkbox.checked;
-      sheet.disabled = disable;
-      log(checkbox, disable, sheet);
-    });
-    button_group[0].appendChild(label);
-  }
+  const button_group = document.querySelector(".s-btn-group");
+  if (!button_group) return;
+  console.info("Buttons are found", button_group);
+  const label = document.createElement("label");
+  label.className = "flex--item s-btn";
+  const checkbox = addCheckBox(label, false, (input) => {
+    const disable = input.checked;
+    sheet.disabled = disable;
+    log("Toggled stylesheet", { disable, sheet });
+  });
+  checkbox.className = "s-btn--text";
+  checkbox.title = "";
+  label.appendChild(document.createTextNode("Show hidden"));
+  button_group.appendChild(label);
 }
 
 installStyleCheckbox();
